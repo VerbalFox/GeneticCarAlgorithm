@@ -1,0 +1,132 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using System;
+
+public class OAgentCar : MonoBehaviour
+{
+    GameObject carObject;
+    GameObject StartPosition;
+    Car car;
+
+    static System.Random rnd;
+
+    public double[] Genes;
+    public List<GameObject> Checkpoints;
+
+    public float TotalDistance = 0f;
+    public float DistanceBetweenActiveCheckpoints = 0f;
+    public float DistanceFromNextCheckpoint = 0f;
+
+    public int CurrentCheckpoint = 0;
+
+    public float Speed = 5;
+
+    // Start is called before the first frame update
+    void Start()
+    {
+        Checkpoints = GetComponentInParent<GeneticAlgorithm>().Checkpoints;
+
+        if (rnd == null)
+        {
+            rnd = new System.Random();
+        }
+
+        StartPosition = GameObject.Find("StartPosition");
+
+        //Create new car
+        carObject = Instantiate(Resources.Load("Prefabs/Car") as GameObject, transform);
+        carObject.transform.position = StartPosition.transform.position;
+        car = carObject.GetComponent<Car>();
+
+        Genes = new double[car.CarFunctions.Length * Car.NumOfDirections * 2];
+
+        for (int i = 0; i < Genes.Length; i++)
+        {
+            Genes[i] = rnd.NextDouble();
+        }
+
+        DistanceBetweenActiveCheckpoints = Vector3.Distance(Checkpoints[CurrentCheckpoint].transform.position, Checkpoints[CurrentCheckpoint + 1].transform.position);
+    }
+
+    // Update is called once per frame
+    void FixedUpdate()
+    {
+        if (car == null)
+        {
+            print("Car is null");
+        }
+
+        float temp = GetFinalFitness() / 25f;
+        car.GetComponent<SpriteRenderer>().color = new Color(temp, temp, temp, 1f);
+
+
+        DistanceFromNextCheckpoint = (carObject.transform.position - Checkpoints[CurrentCheckpoint + 1].transform.position).magnitude / ((carObject.transform.position - Checkpoints[CurrentCheckpoint].transform.position).magnitude + (Checkpoints[CurrentCheckpoint + 1].transform.position - carObject.transform.position).magnitude) *
+            (Checkpoints[CurrentCheckpoint + 1].transform.position - Checkpoints[CurrentCheckpoint].transform.position).magnitude;
+
+        double[] FunctionInputValues;
+        FunctionInputValues = new double[car.CarFunctions.Length];
+
+        for (int k = 0; k < 2; k++)
+        {
+            int multiplier = k == 0 ? 1 : -1;
+
+            for (int i = 0; i < Car.NumOfDirections; i++)
+            {
+                for (int j = 0; j < car.CarFunctions.Length; j++)
+                {
+                    //print((float)(Genes[(i * car.CarFunctions.Length) + j] / (float)byte.MaxValue));
+                    FunctionInputValues[j] += 1 - car.DistanceFromDirections[i] * Genes[(i * car.CarFunctions.Length) + j + (k * Genes.Length/2)] * Speed * multiplier;
+
+                    //car.CarFunctions[j](((1 - car.DistanceFromDirections[i]) * (float)Genes[(i * car.CarFunctions.Length) + j] * Speed));
+                }
+            }
+        }
+        
+
+        for (int i = 0; i < car.CarFunctions.Length; i++)
+        {
+            //print((float)(Genes[(i * car.CarFunctions.Length) + j] / (float)byte.MaxValue));
+            car.CarFunctions[i]((float)FunctionInputValues[i]);
+        }
+    }
+
+    public void CheckIfHitNextCheckpoint(GameObject checkpoint)
+    {
+        if (Checkpoints[CurrentCheckpoint + 1] == checkpoint)
+        {
+            TotalDistance += Vector3.Distance(Checkpoints[CurrentCheckpoint].transform.position, Checkpoints[CurrentCheckpoint + 1].transform.position);
+            CurrentCheckpoint++;
+            DistanceBetweenActiveCheckpoints = Vector3.Distance(Checkpoints[CurrentCheckpoint].transform.position, Checkpoints[CurrentCheckpoint + 1].transform.position);
+        } else if (Checkpoints[CurrentCheckpoint - 1] == checkpoint)
+        {
+            CurrentCheckpoint--;
+        }
+    }
+
+    public void ResetCar()
+    {
+        Destroy(carObject);
+
+        //Create new car
+        carObject = Instantiate(Resources.Load("Prefabs/Car") as GameObject, transform);
+        carObject.transform.position = StartPosition.transform.position;
+        car = carObject.GetComponent<Car>();
+
+        CurrentCheckpoint = 0;
+        TotalDistance = 0f;
+        DistanceBetweenActiveCheckpoints = 0f;
+        DistanceFromNextCheckpoint = 0f;
+    }
+
+    public float GetFinalFitness()
+    {
+        return TotalDistance + (DistanceBetweenActiveCheckpoints - DistanceFromNextCheckpoint);
+    }
+
+    public void MutateGene()
+    {
+        Genes[rnd.Next(0, car.CarFunctions.Length * Car.NumOfDirections - 1)] = rnd.NextDouble();
+        
+    }
+}

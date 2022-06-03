@@ -1,0 +1,98 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class OCar : MonoBehaviour
+{
+    public delegate void CarFunction(float force);
+
+    public const int NumOfDirections = 2;
+    float _distanceSeen = 10;
+
+    public Vector3[] Directions;
+    public CarFunction[] CarFunctions;
+    public float[] DistanceFromDirections;
+
+    Rigidbody2D _rigidbody2d;
+
+    public float MaxSpeed;
+    public float BrakeFactor;
+    public float TurnFactor;
+
+    // Start is called before the first frame update
+    void Awake()
+    {
+        MaxSpeed = 10;
+        BrakeFactor = 0.4f;
+        TurnFactor = .5f;
+
+        _rigidbody2d = GetComponent<Rigidbody2D>();
+
+        Directions = new Vector3[NumOfDirections];
+        DistanceFromDirections = new float[NumOfDirections];
+
+        CarFunctions = new CarFunction[2];
+        CarFunctions[0] = TurnLeft; CarFunctions[1] = TurnRight; //CarFunctions[2] = Brake; //CarFunctions[3] = TurnRight;
+    }
+
+    private void FixedUpdate()
+    {
+        Accelerate(5);
+        for (int i = 0; i < NumOfDirections; i++)
+        {
+            Directions[i] = new Vector3(Mathf.Cos(Mathf.PI / (NumOfDirections - 1) * i + (Mathf.Deg2Rad * _rigidbody2d.rotation)), Mathf.Sin(Mathf.PI / (NumOfDirections - 1) * i + (Mathf.Deg2Rad * _rigidbody2d.rotation)), 0);
+        }
+
+
+        for (int i = 0; i < NumOfDirections; i++)
+        {
+            RaycastHit2D hit = Physics2D.Raycast(transform.position, Directions[i] + transform.position, _distanceSeen, LayerMask.GetMask("Wall"));
+
+            DistanceFromDirections[i] = hit.fraction;
+        }
+    }
+
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        GetComponentInParent<AgentCar>().CheckIfHitNextCheckpoint(collision.gameObject);
+    }
+
+
+    public void Accelerate(float force)
+    {
+        _rigidbody2d.AddForce(transform.up * force);
+
+        _rigidbody2d.velocity = Vector2.ClampMagnitude(_rigidbody2d.velocity, MaxSpeed);
+    }
+
+    public void Brake(float force)
+    {
+        _rigidbody2d.AddForce(transform.up * -force * BrakeFactor);
+
+        _rigidbody2d.velocity = Vector2.ClampMagnitude(_rigidbody2d.velocity, MaxSpeed);
+    }
+
+    public void TurnLeft(float force)
+    {
+        //_rigidbody2d.rotation += force;
+        _rigidbody2d.AddTorque(force * TurnFactor);
+    }
+
+    public void TurnRight(float force)
+    {
+        //_rigidbody2d.rotation -= force;
+        _rigidbody2d.AddTorque(-force * TurnFactor);
+    }
+
+
+
+    void OnDrawGizmos()
+    {
+        Gizmos.color = Color.blue;
+
+        foreach (var direction in Directions)
+        {
+            Gizmos.DrawLine(transform.position, direction * _distanceSeen + transform.position);
+        }
+    }
+}

@@ -1,0 +1,184 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using System.Linq;
+
+public class OGeneticAlgorithm : MonoBehaviour
+{
+    public List<GameObject> Checkpoints;
+    public List<GameObject> AIAgents;
+
+    System.Random rnd;
+
+    public float Timer = 0;
+    public int generation = 1;
+
+    public float timescale = 1;
+
+    // Start is called before the first frame update
+    void Start()
+    {
+        rnd = new System.Random();
+
+        for (int i = 0; i < 100; i++)
+        {
+            AIAgents.Add(Instantiate(Resources.Load("Prefabs/CarAgent") as GameObject, transform));
+            AIAgents[i].GetComponent<AgentCar>().Checkpoints = Checkpoints;
+        }
+
+    }
+
+    // Update is called once per frame
+    void FixedUpdate()
+    {
+        Time.timeScale = timescale;
+
+        Timer += Time.fixedDeltaTime;
+
+        if (Timer >= 5)
+        {
+            Timer = 0;
+            
+            CreateAIAgentChildren();
+            generation++;
+
+        }
+
+    }
+
+    // function tournament selection
+    public GameObject TournamentSelection(int tournamentSize)
+    {
+        int randomIndex = rnd.Next(0, AIAgents.Count);
+        GameObject bestAgent = AIAgents[randomIndex];
+
+        for (int i = 0; i < tournamentSize; i++)
+        {
+            randomIndex = rnd.Next(0, AIAgents.Count);
+            if (AIAgents[randomIndex].GetComponent<AgentCar>().GetFinalFitness() > bestAgent.GetComponent<AgentCar>().GetFinalFitness())
+            {
+                bestAgent = AIAgents[randomIndex];
+            }
+        }
+
+        return bestAgent;
+    }
+
+
+    void CreateAIAgentChildren()
+    {
+        List<GameObject> newAIAgents = new List<GameObject>(100);
+        AIAgents = AIAgents.OrderBy(agent => -agent.GetComponent<AgentCar>().GetFinalFitness()).ToList();
+        for (int i = 0; i < 50; i++)
+        {
+            //GameObject bestAgent = TournamentSelection(20);
+            //try
+            //{
+            //    GameObject temp;
+            //    newAIAgents.Add(temp = Instantiate(Resources.Load("Prefabs/CarAgent") as GameObject, transform));
+            //    temp.GetComponent<AgentCar>().Genes = bestAgent.GetComponent<AgentCar>().Genes;
+            //}
+            //catch (Exception e)
+            //{
+            //    Debug.Log(e);
+            //}
+
+            GameObject temp;
+            newAIAgents.Add(temp = Instantiate(Resources.Load("Prefabs/CarAgent") as GameObject, transform));
+            temp.GetComponent<AgentCar>().Genes = AIAgents[i].GetComponent<AgentCar>().Genes;
+
+        }
+
+        //AIAgents = AIAgents.OrderBy(agent => -agent.GetComponent<AgentCar>().GetFinalFitness()).ToList();
+        ////parts = parts.OrderBy(x => x.count).ToList();
+        //
+        //
+
+        //
+        //AIAgents.RemoveRange(50, 50);
+        //
+        //foreach (var agent in AIAgents)
+        //{
+        //    agent.GetComponent<AgentCar>().ResetCar();
+        //}
+
+
+        //AIAgents.OrderBy(agent => rnd.Next());
+        //
+        for (int i = 0; i < 50; i += 2)
+        {
+            int FirstParentIndex = i;
+            int SecondParentIndex = i + 1;
+
+            GameObject baby1;
+            newAIAgents.Add(baby1 = Instantiate(Resources.Load("Prefabs/CarAgent") as GameObject, transform));
+            GameObject baby2;
+            newAIAgents.Add(baby2 = Instantiate(Resources.Load("Prefabs/CarAgent") as GameObject, transform));
+
+            baby1.GetComponent<AgentCar>().Genes =
+                SinglePointCrossover(AIAgents[FirstParentIndex].GetComponent<AgentCar>().Genes, AIAgents[SecondParentIndex].GetComponent<AgentCar>().Genes, 2);
+
+            baby2.GetComponent<AgentCar>().Genes =
+                SinglePointCrossover(AIAgents[SecondParentIndex].GetComponent<AgentCar>().Genes, AIAgents[FirstParentIndex].GetComponent<AgentCar>().Genes, 2); 
+            
+            
+            if (rnd.Next(0, 9) == 9)
+            {
+                baby1.GetComponent<AgentCar>().MutateGene();
+            }
+        
+        }
+
+        foreach (var agent in AIAgents.ToList())
+        {
+            Destroy(agent);
+            AIAgents.Remove(agent);
+        }
+
+        //foreach (var agent in AIAgents.ToList())
+        //{
+        //    if (!newAIAgents.Contains(agent))
+        //    {
+        //        Destroy(agent);
+        //        AIAgents.Remove(agent);
+        //    }
+        //}
+
+        AIAgents = newAIAgents;
+
+
+    }
+
+    double[] SinglePointCrossover(double[] stream1, double[] stream2, int index)
+    {
+        List<double> firstList = stream1.ToList();
+        List<double> secondList = stream2.ToList();
+
+        firstList.RemoveRange(index, firstList.Count - index);
+        secondList.RemoveRange(0, stream2.Length - firstList.Count);
+
+        return firstList.Concat(secondList).ToArray();
+    }
+
+    double[] RandomCrossover(double[] stream1, double[] stream2)
+    {
+        double[] finalArray = new double[stream1.Length];
+
+        for (int i = 0; i < stream1.Length; i++)
+        {
+            if (rnd.Next(0, 1) == 1)
+            {
+                finalArray[i] = stream1[i];
+            }
+            else
+            {
+                finalArray[i] = stream2[i];
+            }
+        }
+
+        return finalArray;
+    }
+    
+
+}
